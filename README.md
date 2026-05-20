@@ -1,6 +1,6 @@
 <table>
   <tr>
-    <td width="58%" valign="top">
+    <td width="45%" valign="top">
       <h1>ASCII Aquarium</h1>
       <p>
         A tiny animated ASCII fish tank for the ESP32-2432S028R
@@ -91,37 +91,23 @@ hardware.
 
 <table>
   <tr>
-    <td width="58%" valign="top">
+    <td width="50%" valign="top">
       <h1>Basic Controls</h1>
-      <p>
-        - Tap the tank to drop food.
-- Tap the top-left corner to reveal the hidden HUD.
-- Use the settings panel to tune fish, bubbles, visitors, seaweed, clock, and
-  backgrounds.
-- Use the Wi-Fi panel to connect to a network and sync internet time.
-- Use the capture panel or BOOT button to save BMP screenshots to SD.
-      </p>
+ <p>• Tap the top-left corner to reveal the hidden HUD.</p>
+ <p>• Tap the tank to drop food.</p>
+ <p>• Use the settings panel to tune fish, bubbles, visitors, seaweed, clock, and
+  backgrounds.</p>
+ <p>• Use the Wi-Fi panel to connect to a network and sync internet time.</p>
+ <p>• Use the capture panel or BOOT button to save BMP screenshots to SD.</p>
     </td>
-    <td width="42%" valign="top">
+    <td width="50%" valign="top">
       <img
-        src="[https://github.com/user-attachments/assets/34200303-25c9-45c5-a6eb-1e53a6c267d7](https://github.com/user-attachments/assets/3a448574-69ee-40fb-a141-50961f769b09)"
+        src="https://github.com/user-attachments/assets/3a448574-69ee-40fb-a141-50961f769b09"
         alt="ASCII Aquarium Settings"
         width="100%">
     </td>
   </tr>
 </table>
-
-## Basic Controls
-
-- Tap the tank to drop food.
-- Tap the top-left corner to reveal the hidden HUD.
-- Use the settings panel to tune fish, bubbles, visitors, seaweed, clock, and
-  backgrounds.
-- Use the Wi-Fi panel to connect to a network and sync internet time.
-- Use the capture panel or BOOT button to save BMP screenshots to SD.
-
- <img width="640" height="480" alt="ASCII_Aquarium_Settings" src="https://github.com/user-attachments/assets/3a448574-69ee-40fb-a141-50961f769b09" style="float: right;"/>
-
 
 ## Build From Source
 
