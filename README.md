@@ -1,11 +1,13 @@
-# ASCII Aquarium CYD
+# ASCII Aquarium
 
 A tiny animated ASCII fish tank for the ESP32-2432S028R "Cheap Yellow Display".
 
-ASCII Aquarium CYD turns the common 320x240 CYD touchscreen into a living little
+ASCII Aquarium turns the common 320x240 CYD touchscreen into a living little
 desktop aquarium with swimming ASCII fish, rising bubbles, swaying seaweed,
 tap-to-feed flakes, occasional octopus and seahorse visitors, touch controls,
 Wi-Fi time sync, persistent settings, and SD-card screenshot capture.
+
+<img width="720" height="540" alt="ASCII_Aqurium_Title_GIF" src="https://github.com/user-attachments/assets/34200303-25c9-45c5-a6eb-1e53a6c267d7" />
 
 It is not a video loop. The aquarium is rendered live on the ESP32, with fish
 that wander, school, turn around, change brightness, avoid each other, and chase
@@ -13,7 +15,8 @@ food when you tap the glass.
 
 ## Web Flasher
 
-The easiest way to install ASCII Aquarium CYD is with the browser flasher:
+The easiest way to install ASCII Aquarium
+ is with the browser flasher:
 
 [Flash ASCII Aquarium CYD](https://power-pill.github.io/ASCII-Aquarium/)
 
@@ -29,6 +32,7 @@ port, and let the installer finish.
 ## Supported Hardware
 
 This firmware is built for the [ESP32-2432S028R "Cheap Yellow Display" board](https://www.aliexpress.com/item/1005004971720824.html):
+
 [https://www.aliexpress.com/item/1005004971720824.html](https://www.aliexpress.com/item/1005004971720824.html)
 
 - ESP32
@@ -37,7 +41,7 @@ This firmware is built for the [ESP32-2432S028R "Cheap Yellow Display" board](ht
 - Optional SD card support for BMP screenshots and frame capture
 
 Other CYD-style boards may look similar but use different display, touch, or SD
-hardware. They may need code changes before flashing.
+hardware.
 
 ## Features
 
