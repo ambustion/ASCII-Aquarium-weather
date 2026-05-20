@@ -95,20 +95,15 @@ hardware.
 - Animated bubbles and seaweed with adjustable sway, length, and randomness.
 - Visiting octopus and seahorse characters with selectable spawn rates.
 - Fish steer around visitors and each other.
-- Background styles: black, blue fade, purple fade, and randomized pixel-art
-  flower backdrop.
+- Background styles: black, blue fade, purple fade, and randomized Spongebob style flower backdrop.
 - Touch settings menu with Tank, Seaweed, Clock, and Background tabs.
 - Optional on-screen clock with manual time or internet time.
 - 12-hour and 24-hour clock formats.
-- Timezone selection, small top or bottom clock, large ASCII clock style, and
-  clock color picker.
-- Wi-Fi panel with network scan, saved credentials, on-screen keyboard,
-  reconnect handling, and NTP time sync.
+- Timezone selection, small top or bottom clock, large ASCII clock style, and clock color picker.
+- Wi-Fi panel with network scan, saved credentials, on-screen keyboard, reconnect handling, and NTP time sync.
 - Persistent settings using ESP32 Preferences.
 - SD-card BMP screenshots and frame sequence capture.
-- Hidden HUD controls for setup, capture, Wi-Fi, settings, quick creature tests,
-  respawn, and randomize.
-- Double-buffered sprite rendering for smoother animation.
+- Hidden HUD controls for setup, capture, Wi-Fi, settings, quick creature tests, respawn, and randomize.
 
 ## Basic Controls
 
@@ -120,7 +115,8 @@ hardware.
  <p>• Use the settings panel to tune fish, bubbles, visitors, seaweed, clock, and
   backgrounds.</p>
  <p>• Use the Wi-Fi panel to connect to a network and sync internet time.</p>
- <p>• Use the capture panel or BOOT button to save BMP screenshots to SD.</p>
+ <p>• Use the capture panel to save BMP sequences to the SD Card. BEWARE - this is EXTREMELY slow since the fishtank simulation is slowed down to allow every frame to be captured.</p>
+ <p>• Press and hold the BOOT button on the back of the CYD to save BMP screenshots to the SD card.</p>
     </td>
     <td width="50%" valign="top">
       <img
