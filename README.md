@@ -7,11 +7,11 @@ desktop aquarium with swimming ASCII fish, rising bubbles, swaying seaweed,
 tap-to-feed flakes, occasional octopus and seahorse visitors, touch controls,
 Wi-Fi time sync, persistent settings, and SD-card screenshot capture.
 
-<img width="720" height="540" alt="ASCII_Aqurium_Title_GIF" src="https://github.com/user-attachments/assets/34200303-25c9-45c5-a6eb-1e53a6c267d7" />
-
 It is not a video loop. The aquarium is rendered live on the ESP32, with fish
 that wander, school, turn around, change brightness, avoid each other, and chase
 food when you tap the glass.
+
+<img width="720" height="540" alt="ASCII_Aqurium_Title_GIF" src="https://github.com/user-attachments/assets/34200303-25c9-45c5-a6eb-1e53a6c267d7" style="float: right;"/>
 
 ## Web Flasher
 
