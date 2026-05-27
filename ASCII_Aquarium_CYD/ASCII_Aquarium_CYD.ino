@@ -224,6 +224,28 @@ static const int CAPTURE_VALUE_RIGHT_X = CAPTURE_PANEL_X + 154;
 static const int CAPTURE_ACTION_X = CAPTURE_PANEL_X + 162;
 static const int CAPTURE_ACTION_W = 70;
 
+// ---------------------------- Weather Configurations ----------------------------
+bool weatherUseFahrenheit = false; // false = Celsius (°C), true = Fahrenheit (°F)
+int weatherLocationIndex = 0;      // Index of the selected city
+
+struct WeatherLocation {
+  const char* displayName;
+  const char* urlQuery;
+};
+
+static const WeatherLocation kWeatherLocations[] = {
+    {"London", "London"},
+    {"New York", "New+York"},
+    {"Tokyo", "Tokyo"},
+    {"Paris", "Paris"},
+    {"Sydney", "Sydney"},
+    {"Cairo", "Cairo"},
+    {"Reykjavik", "Reykjavik"},
+    {"Singapore", "Singapore"}
+};
+static constexpr int kWeatherLocationCount = sizeof(kWeatherLocations) / sizeof(kWeatherLocations[0]);
+
+
 enum SettingsTab {
   SETTINGS_TAB_TANK,
   SETTINGS_TAB_SEAWEED,
@@ -347,6 +369,8 @@ static constexpr const char* CLOCK_NTP_1 = "pool.ntp.org";
 static constexpr const char* CLOCK_NTP_2 = "time.nist.gov";
 static constexpr const char* CLOCK_NTP_3 = "time.google.com";
 static const int DEFAULT_TIMEZONE_INDEX = 5;  // Central time, matching the original hard-coded default.
+
+
 
 static const int MAX_WIFI_NETWORKS = 12;
 static const int WIFI_SSID_MAX_LEN = 32;
@@ -530,6 +554,9 @@ static const AsciiClockGlyph kAsciiClockStandardGlyphs[] = {
     {'a', {"", "  __ _", " / _` |", "| (_| |", " \\__,_|", ""}},
     {'m', {"", " _ __ ___", "| '_ ` _ \\", "| | | | | |", "|_| |_| |_|", ""}},
     {'p', {"", " _ __", "| '_ \\", "| |_) |", "| .__/", "|_|"}},
+    {'+', {" ", "  +  ", "+++++", "  +  ", "     ", " "}},
+    {'-', {" ", "     ", "+++++", "     ", "     ", " "}},
+    {'*', {" _", "(_)", "", "     ", "     ", " "}}
 };
 
 static const size_t kFishGlyphBuf = 28;
@@ -1152,6 +1179,50 @@ bool readTouchPoint(int& sx, int& sy) {
   return (sx >= 0 && sx < SCREEN_W && sy >= 0 && sy < SCREEN_H);
 }
 
+// ---------------------------- Weather Extension ----------------------------
+char weatherBuffer[24] = "Loading...";       // Holds the string displayed on screen
+unsigned long lastWeatherUpdateMs = 0;      // Tracks when we last pinged the server
+static const unsigned long WEATHER_UPDATE_INTERVAL_MS = 1800000UL; // Fetch every 30 mins
+
+#include <HTTPClient.h> // Ensure this header is available if not inherited
+
+void fetchCurrentWeather() {
+  if (!wifiConnected) return;
+
+  HTTPClient http;
+  
+  // Get active configurations
+  const WeatherLocation& loc = kWeatherLocations[weatherLocationIndex];
+  const char* unitParam = weatherUseFahrenheit ? "?format=%c+%t&u" : "?format=%c+%t&m"; // 'u' forces US/Fahrenheit units, 'm' forces Metric
+
+  // Construct complete endpoint string securely
+  String requestUrl = "http://wttr.in/" + String(loc.urlQuery) + String(unitParam);
+  
+  http.begin(requestUrl); 
+  http.setTimeout(4000);
+
+  int httpCode = http.GET();
+  if (httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    payload.trim();
+    if (payload.length() > 0) {
+      // 1. Strip out the '+' symbol completely
+      payload.replace("+", "");
+      
+      // 2. Safely translate the multi-byte degree symbol (°) into a standard single '*' character
+      // wttr.in sends standard UTF-8 degree symbols, which take up two bytes: \xC2\xB0
+      payload.replace("\xC2\xB0", "*");
+      copySafe(weatherBuffer, sizeof(weatherBuffer), payload.c_str());
+      Serial.print("Weather updated: ");
+      Serial.println(weatherBuffer);
+    }
+  } else {
+    Serial.print("Weather fetch failed. Error code: ");
+    Serial.println(httpCode);
+  }
+  http.end();
+}
+
 bool isLeapYear(int year) {
   return ((year % 4 == 0) && (year % 100 != 0)) || (year % 400 == 0);
 }
@@ -1628,6 +1699,8 @@ void savePersistentState() {
   prefs.putString("wifi_ssid", wifiSsid);
   prefs.putString("wifi_pass", wifiPass);
   prefs.putBytes("flowers", pixelFlowers, sizeof(pixelFlowers));
+  prefs.putBool("wth_unit", weatherUseFahrenheit);
+  prefs.putInt("wth_loc", weatherLocationIndex);
   prefs.end();
   settingsDirty = false;
   lastSettingsSaveMs = millis();
@@ -1672,6 +1745,13 @@ void loadPersistentState() {
     size_t flowerBytes = prefs.getBytesLength("flowers");
     if (flowerBytes == sizeof(pixelFlowers)) {
       prefs.getBytes("flowers", pixelFlowers, sizeof(pixelFlowers));
+    }
+    weatherUseFahrenheit = prefs.getBool("wth_unit", false);
+    weatherLocationIndex = prefs.getInt("wth_loc", 0);
+
+    // Paste the boundary validation check right here:
+    if (weatherLocationIndex < 0 || weatherLocationIndex >= kWeatherLocationCount) {
+      weatherLocationIndex = 0;
     }
   }
   prefs.end();
@@ -1968,6 +2048,14 @@ void drawThickLine(TFT_eSprite& s, int x0, int y0, int x1, int y1, uint16_t colo
   s.drawLine(x0, y0 + 1, x1, y1 + 1, color);
   s.drawLine(x0 - 1, y0, x1 - 1, y1, color);
   s.drawLine(x0, y0 - 1, x1, y1 - 1, color);
+}
+
+void drawButton(TFT_eSprite& s, int x, int y, int w, int h, const char* label, uint16_t fg, uint16_t bg) {
+  s.fillRoundRect(x, y, w, h, 4, bg);
+  s.drawRoundRect(x, y, w, h, 4, fg);
+  s.setTextColor(fg, bg);
+  s.setTextDatum(MC_DATUM);
+  s.drawString(label, x + w / 2, y + h / 2);
 }
 
 void drawActionRow(TFT_eSprite& s, int rowY, const char* label, const char* actionLabel) {
@@ -2915,6 +3003,55 @@ void drawClock(TFT_eSprite& s) {
   }
 }
 
+void drawWeather(TFT_eSprite& s) {
+  if (!clockVisible) return; 
+
+  if (clockDisplayStyle == CLOCK_STYLE_SMALL_TEXT) {
+    // --- Keep Standard Font for Small Text Layout --- 
+    s.setTextSize(1); 
+    s.setTextFont(2); 
+    s.setTextColor(TFT_CYAN, BG_COLOR); 
+    s.setTextDatum(TC_DATUM); 
+    
+    int clockY = (clockSmallPosition == CLOCK_SMALL_TOP) ? 4 : (SCREEN_H - 18); 
+    int weatherY = clockY + 16; 
+    s.drawString(weatherBuffer, SCREEN_W / 2, weatherY); 
+
+  } else if (clockDisplayStyle == CLOCK_STYLE_ASCII) {
+    // --- Upgraded Retro ASCII Text Mesh Renderer --- 
+    int artCols = asciiClockTextCols(weatherBuffer); 
+    int artPixelW = artCols * ASCII_CLOCK_CHAR_W; 
+    int x = (SCREEN_W - artPixelW) / 2; 
+    if (x < 0) x = 0; 
+    
+    // Position it cleanly underneath the giant digital clock digits 
+    int asciiWeatherY = ASCII_CLOCK_Y + (ASCII_CLOCK_ROWS * ASCII_CLOCK_ROW_H) + 6; 
+
+    s.setTextFont(1); 
+    s.setTextSize(1); 
+    s.setTextDatum(TL_DATUM); 
+    s.setTextColor(clockAsciiTextColor); // Match the custom clock theme color! 
+
+    // Construct the string row-by-row using the sketch's existing font map 
+    for (int row = 0; row < ASCII_CLOCK_ROWS; ++row) { 
+      char rowBuf[96] = ""; 
+      for (size_t i = 0; weatherBuffer[i] != '\0'; ++i) { 
+        if (i > 0) { 
+          for (int gap = 0; gap < ASCII_CLOCK_GLYPH_GAP; ++gap) appendCharSafe(rowBuf, sizeof(rowBuf), ' '); 
+        }
+        appendAsciiClockGlyphRow(rowBuf, sizeof(rowBuf), asciiClockGlyphFor(weatherBuffer[i]), row); 
+      }
+      if (clockFlipHorizontal) { 
+        mirrorClockTextInPlace(rowBuf); 
+      }
+      trimTrailingSpaces(rowBuf); 
+      if (rowBuf[0] != '\0') { 
+        s.drawString(rowBuf, x, asciiWeatherY + row * ASCII_CLOCK_ROW_H); 
+      }
+    }
+    s.setTextFont(2); // Restore default font metrics safely 
+  }
+}
 void drawHud(TFT_eSprite& s) {
   if (!hudVisible) return;
   constexpr int kHudTextYStart = 32;   // Below corners so long labels avoid H overlap
@@ -2949,13 +3086,7 @@ void drawHud(TFT_eSprite& s) {
   s.drawString(line, kHudTextX, kHudTextYStart + kHudTextLineDY);
 }
 
-void drawButton(TFT_eSprite& s, int x, int y, int w, int h, const char* label, uint16_t fg, uint16_t bg) {
-  s.fillRoundRect(x, y, w, h, 4, bg);
-  s.drawRoundRect(x, y, w, h, 4, fg);
-  s.setTextColor(fg, bg);
-  s.setTextDatum(MC_DATUM);
-  s.drawString(label, x + w / 2, y + h / 2);
-}
+
 
 void drawSettingRow(TFT_eSprite& s, int rowY, const char* label, const char* value) {
   const int controlY = rowY;
@@ -3266,20 +3397,21 @@ void drawClockEnableStyleRow(TFT_eSprite& s) {
 void drawClockSettings(TFT_eSprite& s) {
   char buf[24];
   drawClockEnableStyleRow(s);
-  drawSettingToggleRow(s, CLOCK_ROW_2_Y, "Time", "Man", "Net", !clockUseInternetTime, clockUseInternetTime);
-  drawSettingToggleRow(s, CLOCK_ROW_3_Y, "Format", "12h", "24h", !clockUse24Hour, clockUse24Hour);
-
+  drawSettingToggleRow(s, CLOCK_ROW_2_Y, "Format", "12h", "24h", !clockUse24Hour, clockUse24Hour);
+  drawSettingToggleRow(s, CLOCK_ROW_3_Y, "Temp Unit", "C", "F", !weatherUseFahrenheit, weatherUseFahrenheit);
+  snprintf(buf, sizeof(buf), "%s", kWeatherLocations[weatherLocationIndex].displayName);
+  drawSettingRow(s, CLOCK_ROW_4_Y, "Location", buf);
+  
   if (clockUseInternetTime) {
-    drawSettingStatusRow(s, CLOCK_ROW_4_Y, "Internet", internetTimeStatus());
-    drawSettingRow(s, CLOCK_ROW_5_Y, "Timezone", currentTimezone().label);
-    return;
+    drawSettingStatusRow(s, CLOCK_ROW_5_Y, "Net Sync", internetTimeStatus());
+  } else {
+    formatClockFieldValue(buf, sizeof(buf));
+    drawSettingRow(s, CLOCK_ROW_5_Y, clockFieldName(), buf);
+    
+    // Manual clock step adjust triggers
+    drawButton(s, CLOCK_FIELD_PREV_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H, "Prev", TFT_CYAN, TFT_DARKGREEN);
+    drawButton(s, CLOCK_FIELD_NEXT_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H, "Next", TFT_CYAN, TFT_DARKGREEN);
   }
-
-  formatClockFieldValue(buf, sizeof(buf));
-  drawSettingRow(s, CLOCK_ROW_4_Y, clockFieldName(), buf);
-  drawSettingRow(s, CLOCK_ROW_5_Y, "Timezone", currentTimezone().label);
-  drawButton(s, CLOCK_FIELD_PREV_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H, "Prev", TFT_CYAN, TFT_DARKGREEN);
-  drawButton(s, CLOCK_FIELD_NEXT_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H, "Next", TFT_CYAN, TFT_DARKGREEN);
 }
 
 void drawClockStyleChoiceRow(TFT_eSprite& s, int rowY, const char* label, const char* leftLabel, const char* rightLabel,
@@ -3436,6 +3568,7 @@ void renderFrame() {
   drawOctopus(canvas);
   drawSeahorse(canvas);
   drawClock(canvas);
+  drawWeather(canvas);
   drawHud(canvas);
   drawSettingsPanel(canvas);
   drawClockStylePanel(canvas);
@@ -3905,16 +4038,7 @@ void processTouch() {
         return;
       }
 
-      if (!clockUseInternetTime && inside(x, y, CLOCK_FIELD_PREV_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H)) {
-        selectClockField(-1);
-        return;
-      }
-      if (!clockUseInternetTime && inside(x, y, CLOCK_FIELD_NEXT_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H)) {
-        selectClockField(1);
-        return;
-      }
-
-      // Clock visibility buttons
+      // Clock visibility hot keys
       if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_1_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
         clockVisible = false;
         resetClockTick();
@@ -3928,58 +4052,70 @@ void processTouch() {
         return;
       }
 
-      // Time source buttons
+      // Row 2: Format controls (12h vs 24h)
       if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_2_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
-        clockUseInternetTime = false;
-        resetClockTick();
-        markSettingsDirty();
-        return;
-      }
-      if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_2_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
-        clockUseInternetTime = true;
-        if (!wifiEnabled) {
-          setWifiEnabled(true);
-        } else if (wifiConnected) {
-          beginInternetTimeSync();
-        } else if (!wifiConnecting && wifiSsid[0] != '\0') {
-          startWifiConnect(wifiSsid, wifiPass, false);
-        } else if (!wifiScanInProgress) {
-          startWifiScan();
-        }
-        markSettingsDirty();
-        return;
-      }
-
-      // Format buttons
-      if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_3_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
         clockUse24Hour = false;
         markSettingsDirty();
         return;
       }
-      if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_3_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+      if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_2_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
         clockUse24Hour = true;
         markSettingsDirty();
         return;
       }
 
-      // Timezone -/+
-      if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_5_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
-        cycleTimezone(-1);
+      // Row 3: Temperature Unit Selection (Celsius vs Fahrenheit)
+      if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_3_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+        if (weatherUseFahrenheit) {
+          weatherUseFahrenheit = false;
+          lastWeatherUpdateMs = 0; // Forces instant weather sync re-fetch
+          markSettingsDirty();
+        }
         return;
       }
-      if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_5_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
-        cycleTimezone(1);
+      if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_3_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+        if (!weatherUseFahrenheit) {
+          weatherUseFahrenheit = true;
+          lastWeatherUpdateMs = 0; // Forces instant weather sync re-fetch
+          markSettingsDirty();
+        }
         return;
       }
 
-      // Selected clock field -/+
-      if (!clockUseInternetTime && inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_4_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
-        adjustClockField(-1);
+      // Row 4: Location Array Picker Iteration (- / +)
+      if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_4_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+        weatherLocationIndex--;
+        if (weatherLocationIndex < 0) weatherLocationIndex = kWeatherLocationCount - 1;
+        lastWeatherUpdateMs = 0; // Force immediate update using new location
+        markSettingsDirty();
         return;
       }
-      if (!clockUseInternetTime && inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_4_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
-        adjustClockField(1);
+      if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_4_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+        weatherLocationIndex++;
+        if (weatherLocationIndex >= kWeatherLocationCount) weatherLocationIndex = 0;
+        lastWeatherUpdateMs = 0; // Force immediate update using new location
+        markSettingsDirty();
         return;
+      }
+
+      // Row 5: Manual Entry adjustments (only registers if internet sync is off)
+      if (!clockUseInternetTime) {
+        if (inside(x, y, CLOCK_FIELD_PREV_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H)) {
+          selectClockField(-1);
+          return;
+        }
+        if (inside(x, y, CLOCK_FIELD_NEXT_X, CLOCK_FIELD_NAV_Y, CLOCK_FIELD_NAV_W, CLOCK_FIELD_NAV_H)) {
+          selectClockField(1);
+          return;
+        }
+        if (inside(x, y, SETTINGS_MINUS_X, CLOCK_ROW_5_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+          adjustClockField(-1);
+          return;
+        }
+        if (inside(x, y, SETTINGS_PLUS_X, CLOCK_ROW_5_Y, SETTINGS_BUTTON_W, SETTINGS_BUTTON_H)) {
+          adjustClockField(1);
+          return;
+        }
       }
     } else {
       // Background style -/+
@@ -4100,11 +4236,24 @@ void loop() {
   unsigned long aquariumStepMs = captureSequenceEnabled ? CAPTURE_RECORD_FRAME_MS : clampVal(elapsedMs, 1UL, 50UL);
   aquariumNowMs += aquariumStepMs;
   float dt = aquariumStepMs * 0.001f;
-
+  
   updateClock(now);
   serviceBootButton(now);
   processTouch();
   serviceWifi(now);
+
+// --- Weather Update Service ---
+  if (wifiConnected) {
+    if (lastWeatherUpdateMs == 0 || (now - lastWeatherUpdateMs >= WEATHER_UPDATE_INTERVAL_MS)) {
+      fetchCurrentWeather();
+      lastWeatherUpdateMs = now;
+    }
+  } else {
+    // Reset tracker so it fetches immediately when WiFi reconnects
+    lastWeatherUpdateMs = 0; 
+    copySafe(weatherBuffer, sizeof(weatherBuffer), "WiFi Off");
+  }
+
   serviceSettingsPersistence(now);
   updateFlakes(dt);
   updateBubbles(dt);
@@ -4113,7 +4262,7 @@ void loop() {
   updateSeahorse(aquariumNowMs, dt);
   keepVisitorsSeparated();
   renderFrame();
-
+  
   frameCount++;
   if (now - fpsTimer >= 500) {
     fps = (frameCount * 1000.0f) / (now - fpsTimer + 1);
